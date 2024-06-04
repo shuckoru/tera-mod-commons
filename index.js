@@ -3,6 +3,8 @@ const fs = require("fs");
 const NodeCache = require("node-cache");
 const dotenv = require("dotenv");
 
+const say = require("say");
+
 const cache = new NodeCache();
 
 const ChatChannels = {
@@ -23,6 +25,10 @@ const ChatChannels = {
   GuildAdv: 214,
 };
 
+function delay(time) {
+  return new Promise((resolve) => setTimeout(resolve, time));
+}
+
 const reloadEnv = () => {
   const envConfig = dotenv.parse(
     fs.readFileSync(path.join(__dirname, "..", ".env"))
@@ -31,6 +37,15 @@ const reloadEnv = () => {
   for (const key in envConfig) {
     process.env[key] = envConfig[key];
   }
+};
+
+const ttsSay = (msg, msgId) => {
+  let cacheKey = msgId ? `ttsSay${msgId}` : `ttsSay${msg}`;
+  if (cache.get(cacheKey) != undefined) return;
+
+  say.speak(msg, "Microsoft Zira Desktop");
+
+  cache.set(cacheKey, msg, 1);
 };
 
 const sendCustomStyleMessage = (mod) => (msg, msgId, style) => {
@@ -58,12 +73,16 @@ const sendMsg = (mod) => (msg, chatName) => {
 };
 
 const sendMsgInPartyChat = (mod) => (msg) => {
+  if (!msg) return;
   let cacheKey = `sendMsgInPartyChat${msg}`;
   if (cache.get(cacheKey) != undefined) return;
 
-  mod.send("C_CHAT", "*", {
-    channel: ChatChannels.Party,
-    message: msg,
+  msg.split("\n").forEach(async (splitMsg) => {
+    await mod.send("C_CHAT", "*", {
+      channel: ChatChannels.Party,
+      message: splitMsg,
+    });
+    await delay(300);
   });
 
   cache.set(cacheKey, msg, 0.5);
@@ -86,7 +105,7 @@ const sendModuleBasedInGameCmdMessage = (mod) => (moduleName) => (msg) =>
 
 const sendModuleBasedInGameCmdMessageFromObject =
   (mod) => (moduleName) => (obj) => {
-    let msg = "";
+    let msg = "\n";
     for (let key in obj) {
       if (obj.hasOwnProperty(key)) {
         msg += `${key}: ${obj[key]}\n`;
@@ -104,4 +123,5 @@ module.exports = {
   reloadEnv,
   sendModuleBasedInGameCmdMessage,
   sendModuleBasedInGameCmdMessageFromObject,
+  ttsSay,
 };
